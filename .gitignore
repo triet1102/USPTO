@@ -2,3 +2,6 @@
 **/*.amltmp
 .ipynb_aml_checkpoints/
 .amlignore
+us-patent-phrase-to-phrase-matching.zip
+*.csv
+bert-base-uncased_log/
