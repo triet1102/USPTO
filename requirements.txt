@@ -1,0 +1,12 @@
+azureml==0.2.7
+azureml_core==1.40.0.post2
+matplotlib==3.5.1
+numpy==1.21.5
+pandas==1.4.2
+pytorch_lightning==1.6.1
+scikit_learn==1.0.2
+seaborn==0.11.2
+torch==1.11.0
+torchmetrics==0.8.0
+tqdm==4.64.0
+transformers==4.18.0
