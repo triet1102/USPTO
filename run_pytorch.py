@@ -14,7 +14,6 @@ def main():
 
     # Init datastore
     ds = ws.get_default_datastore()
-    # data_ref = ds.path('datasets/USPTO_data').as_mount()
     USPTO_file_dataset = Dataset.File.from_files(path=(ds, 'datasets/USPTO_data'))
 
     # Init experiment

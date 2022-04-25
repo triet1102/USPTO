@@ -16,10 +16,27 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from azureml.core import Run
 import sys
 import os
+from sim_dataset import PhraseSimilarityDataset
+from sim_dataset import PhraseSimilarityTestset
+from model import PhraseSimilarityModelImpl
+from model import PhraseSimilarityModel
 
 
 def get_program_arguments():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--devices',
+        type=int,
+        default=4,
+        help='Number of device'
+    )
+    parser.add_argument(
+        '--num-nodes',
+        type=int,
+        default=2,
+        help='Number of node'
+    )
+
     parser.add_argument(
         '--data-folder',
         type=str,
@@ -63,12 +80,6 @@ def get_program_arguments():
         help='Learning rate'
     )
     parser.add_argument(
-        '--max-learning-rate',
-        type=float,
-        default=1e-3,
-        help='Max learning rate'
-    )
-    parser.add_argument(
         '--accumulate',
         type=int,
         default=1,
@@ -95,7 +106,7 @@ def get_program_arguments():
     parser.add_argument(
         '--debug',
         type=bool,
-        default=False,
+        default=True,
         help='Debug mode'
     )
     parser.add_argument(
@@ -109,46 +120,126 @@ def get_program_arguments():
     return arguments
 
 
-def main(data_folder: str,
+def main(devices: int,
+         num_nodes: int,
+         data_folder: str,
          model_name: str,
          val_size: float,
          max_length: int,
          batch_size: int,
          num_epoch: int,
          learning_rate: float,
-         max_learning_rate: float,
          accumulate: int,
          patience: int,
          monitor: str,
          seed: int,
          debug: bool,
-         save_model: bool):
+         save_model: bool,
+         args: argparse.Namespace):
 
-    # Get PyTorch environment variables
-    world_size = int(os.environ["WORLD_SIZE"])
-    rank = int(os.environ["RANK"])
-    local_rank = int(os.environ["LOCAL_RANK"])
-    print(f"{rank}: OK")
+    # # Get PyTorch environment variables
+    # world_size = int(os.environ["WORLD_SIZE"])
+    # rank = int(os.environ["RANK"])
+    # local_rank = int(os.environ["LOCAL_RANK"])
 
-    dir_list = os.listdir(data_folder)
-    print(f"{rank}: Path of mount: {dir_list}")
+    # dir_list = os.listdir(data_folder)
+    # print(f"{rank}: Path of mount: {dir_list}")
+
+    # Setup path
+    train_path = os.path.join(data_folder, "train.csv")
+    test_path = os.path.join(data_folder, "test.csv")
+    submission_path = os.path.join(data_folder, "sample_submission.csv")
+
+    # Read data
+    train_data = pd.read_csv(train_path)
+    test_data = pd.read_csv(test_path)
+
+    if debug == True:
+        train_data = train_data.iloc[:1000]
+
+    scores = train_data.score.values
+    train_data.drop("score", inplace=True, axis=1)
+    train_data, val_data, train_labels, val_labels = train_test_split(train_data,
+                                                                      scores,
+                                                                      stratify=scores,
+                                                                      test_size=val_size,
+                                                                      random_state=seed
+                                                                      )
+    train_data["score"] = train_labels
+    val_data["score"] = val_labels
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    train_dataset = PhraseSimilarityDataset(train_data, tokenizer, max_length)
+    val_dataset = PhraseSimilarityDataset(val_data, tokenizer, max_length)
+    test_dataset = PhraseSimilarityTestset(test_data, tokenizer, max_length)
+
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True)
+    val_dataloader = DataLoader(
+        val_dataset, batch_size=batch_size, shuffle=False)
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False)
+
+    steps_per_epoch = len(train_dataloader)
+    print(f"steps_per_epoch: {steps_per_epoch}")
+
+    os.makedirs("./outputs", exist_ok=True)
+    logger = CSVLogger(save_dir='./outputs',
+                       name=model_name.split('/')[-1]+'_log')
+    logger.log_hyperparams(args.__dict__)
+
+    checkpoint_callback = ModelCheckpoint(dirpath="./outputs",
+                                          monitor=monitor,
+                                          save_top_k=1,
+                                          save_last=True,
+                                          save_weights_only=True,
+                                          filename="{epoch:02d}-{valid_loss:.4f}-{valid_acc:.4f}",
+                                          verbose=False,
+                                          mode="min")
+
+    early_stop_callback = EarlyStopping(monitor=monitor,
+                                        patience=patience,
+                                        verbose=False,
+                                        mode="min")
+
+    model = PhraseSimilarityModelImpl(model_name)
+    criterion = nn.HuberLoss(reduction='mean', delta=1.0)
+    metric = MeanSquaredError()
+    driver = PhraseSimilarityModel(model, learning_rate, criterion, metric)
+
+    trainer = Trainer(
+        accelerator="gpu",
+        devices=devices,
+        num_nodes=num_nodes,
+        strategy="ddp",
+        max_epochs=num_epoch,
+        accumulate_grad_batches=accumulate,
+        callbacks=[checkpoint_callback, early_stop_callback],
+        logger=logger,
+        weights_summary='top',
+    )
+
+    trainer.fit(driver, train_dataloaders=train_dataloader,
+                val_dataloaders=val_dataloader)
 
 
 if __name__ == "__main__":
     args = get_program_arguments()
-    main(data_folder=args.data_folder,
+    main(devices=args.devices,
+         num_nodes=args.num_nodes,
+         data_folder=args.data_folder,
          model_name=args.model_name,
          val_size=args.val_size,
          max_length=args.max_length,
          batch_size=args.batch_size,
          num_epoch=args.num_epoch,
          learning_rate=args.learning_rate,
-         max_learning_rate=args.max_learning_rate,
          accumulate=args.accumulate,
          patience=args.patience,
          monitor=args.monitor,
          seed=args.seed,
          debug=args.debug,
-         save_model=args.save_model)
+         save_model=args.save_model,
+         args=args)
 
     sys.exit(0)
