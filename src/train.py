@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from torchmetrics import MeanSquaredError
@@ -17,10 +15,17 @@ from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from azureml.core import Run
 import sys
+import os
 
 
 def get_program_arguments():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--data-folder',
+        type=str,
+        required=True,
+        help='Path to data folder'
+    )
     parser.add_argument(
         '--model-name',
         type=str,
@@ -104,7 +109,8 @@ def get_program_arguments():
     return arguments
 
 
-def main(model_name: str,
+def main(data_folder: str,
+         model_name: str,
          val_size: float,
          max_length: int,
          batch_size: int,
@@ -117,11 +123,21 @@ def main(model_name: str,
          seed: int,
          debug: bool,
          save_model: bool):
-    pass
+
+    # Get PyTorch environment variables
+    world_size = int(os.environ["WORLD_SIZE"])
+    rank = int(os.environ["RANK"])
+    local_rank = int(os.environ["LOCAL_RANK"])
+    print(f"{rank}: OK")
+
+    dir_list = os.listdir(data_folder)
+    print(f"{rank}: Path of mount: {dir_list}")
+
 
 if __name__ == "__main__":
     args = get_program_arguments()
-    main(model_name=args.model_name,
+    main(data_folder=args.data_folder,
+         model_name=args.model_name,
          val_size=args.val_size,
          max_length=args.max_length,
          batch_size=args.batch_size,
