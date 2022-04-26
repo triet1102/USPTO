@@ -112,7 +112,7 @@ def get_program_arguments():
     parser.add_argument(
         '--save-model',
         type=bool,
-        default=False,
+        default=True,
         help='Whether to save the trained model'
     )
 
