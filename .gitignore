@@ -5,3 +5,4 @@
 us-patent-phrase-to-phrase-matching.zip
 *.csv
 bert-base-uncased_log/
+src/__pycache__/
