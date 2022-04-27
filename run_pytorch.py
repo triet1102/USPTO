@@ -6,15 +6,20 @@ from azureml.core import Workspace
 import sys
 from azureml.core.runconfig import PyTorchConfiguration
 from azureml.core import Dataset
+import os
 
 
 def main():
+    """Submit train job to compute cluster
+    """
+
     # Init workspace
     ws = Workspace.from_config()
 
     # Init datastore
     ds = ws.get_default_datastore()
-    USPTO_file_dataset = Dataset.File.from_files(path=(ds, 'datasets/USPTO_data'))
+    USPTO_file_dataset = Dataset.File.from_files(
+        path=(ds, 'datasets/USPTO_data'))
 
     # Init experiment
     experiment = Experiment(
@@ -27,10 +32,9 @@ def main():
                              compute_target='gpu-cluster',
                              distributed_job_config=distr_config,
                              arguments=[
-                                 '--data-folder', USPTO_file_dataset.as_mount()
+                                 '--data-folder', USPTO_file_dataset.as_mount(),
                              ]
                              )
-
 
     env = Environment.from_conda_specification(
         name='venv',
@@ -42,6 +46,15 @@ def main():
     aml_url = run.get_portal_url()
     print(f"See training insights from: \n{aml_url}")
     run.wait_for_completion()
+
+    # Can load a run with
+    # ws = Workspace.from_config()
+    # run = ws.get_run('YOUR_RUN_ID')
+    save_model = True
+    if save_model:
+        os.makedirs("./saved_models", exist_ok=True)
+        run.download_files(prefix="./outputs",
+                           output_directory="./saved_models")
 
 
 if __name__ == "__main__":
