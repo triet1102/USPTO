@@ -134,8 +134,25 @@ def main(devices: int,
          monitor: str,
          seed: int,
          debug: bool,
-         save_model: bool,
          args: argparse.Namespace):
+    """Training script
+
+    :param devices: Number of GPUs per node
+    :param num_nodes: Number of node
+    :param data_folder: Mounted path of data folder from datastore to compute cluster
+    :param model_name: Name or path of a pretrained model
+    :param val_size: Percentage of validation
+    :param max_length: Max sequence length for tokenizer
+    :param batch_size: Batch size
+    :param num_epoch: Number of epoch
+    :param learning_rate: Learning rate
+    :param accumulate: Accumulate
+    :param patience: Patience
+    :param monitor: Monitor
+    :param seed: Seed
+    :param debug: Debug
+    :param args: Arguments
+    """
 
     # # Get PyTorch environment variables
     # world_size = int(os.environ["WORLD_SIZE"])
@@ -154,6 +171,7 @@ def main(devices: int,
     train_data = pd.read_csv(train_path)
     test_data = pd.read_csv(test_path)
 
+    # !!! Remember to switch debug = False for training
     if debug == True:
         train_data = train_data.iloc[:1000]
 
@@ -193,7 +211,7 @@ def main(devices: int,
                                           save_top_k=1,
                                           save_last=True,
                                           save_weights_only=True,
-                                          filename="{epoch:02d}-{valid_loss:.4f}-{valid_acc:.4f}",
+                                          filename="{epoch:02d}-{val_loss:.4f}-{val_error:.4f}",
                                           verbose=False,
                                           mode="min")
 
@@ -239,7 +257,6 @@ if __name__ == "__main__":
          monitor=args.monitor,
          seed=args.seed,
          debug=args.debug,
-         save_model=args.save_model,
          args=args)
 
     sys.exit(0)

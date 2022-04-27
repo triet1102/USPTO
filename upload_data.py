@@ -5,6 +5,9 @@ import sys
 
 
 def main():
+    """Upload data from local to datastore
+    """
+
     ws = Workspace.from_config()
     datastore = ws.get_default_datastore()
     Dataset.File.upload_directory(src_dir='data', 
