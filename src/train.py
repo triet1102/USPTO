@@ -106,7 +106,7 @@ def get_program_arguments():
     parser.add_argument(
         '--debug',
         type=bool,
-        default=True,
+        default=False,
         help='Debug mode'
     )
     parser.add_argument(
