@@ -20,6 +20,7 @@ from sim_dataset import PhraseSimilarityDataset
 from sim_dataset import PhraseSimilarityTestset
 from model import PhraseSimilarityModelImpl
 from model import PhraseSimilarityModel
+import matplotlib.pyplot as plt
 
 
 def get_program_arguments():
@@ -239,6 +240,14 @@ def main(devices: int,
 
     trainer.fit(driver, train_dataloaders=train_dataloader,
                 val_dataloaders=val_dataloader)
+    
+    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+    train_acc = metrics["train_error"].dropna().reset_index(drop=True)
+    val_acc = metrics["val_error"].dropna().reset_index(drop=True)
+
+    # fig = plt.figure(figsize=(7,6))
+    # plt.grid(True)
+    # plt.plot(train)
 
 
 if __name__ == "__main__":
