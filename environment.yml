@@ -19,4 +19,5 @@ dependencies:
     - pandas
     - numpy
     - torchmetrics
+    - matplotlib
 prefix: /anaconda/envs/venv
