@@ -47,9 +47,13 @@ def main():
     print(f"See training insights from: \n{aml_url}")
     run.wait_for_completion()
 
-    # Can load a run with
+    # # Can load a run with
     # ws = Workspace.from_config()
-    # run = ws.get_run('YOUR_RUN_ID')
+    # run = ws.get_run('USPTO-train_1651580405_5fb62f0b')
+    # os.makedirs("./saved_models", exist_ok=True)
+    # run.download_files(prefix="./outputs",
+    #                     output_directory="./saved_models")
+
     save_model = True
     if save_model:
         os.makedirs("./saved_models", exist_ok=True)
