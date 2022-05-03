@@ -59,7 +59,7 @@ def get_program_arguments():
     parser.add_argument(
         '--max-length',
         type=int,
-        default=192,
+        default=64,
         help='Max sequence length for tokenizer'
     )
     parser.add_argument(
@@ -157,11 +157,8 @@ def main(devices: int,
 
     # # Get PyTorch environment variables
     # world_size = int(os.environ["WORLD_SIZE"])
-    # rank = int(os.environ["RANK"])
+    rank = int(os.environ["RANK"])
     # local_rank = int(os.environ["LOCAL_RANK"])
-
-    # dir_list = os.listdir(data_folder)
-    # print(f"{rank}: Path of mount: {dir_list}")
 
     # Setup path
     train_path = os.path.join(data_folder, "train.csv")
@@ -241,14 +238,45 @@ def main(devices: int,
     trainer.fit(driver, train_dataloaders=train_dataloader,
                 val_dataloaders=val_dataloader)
     
-    metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-    train_acc = metrics["train_error"].dropna().reset_index(drop=True)
-    val_acc = metrics["val_error"].dropna().reset_index(drop=True)
+    if rank == 0:
+        metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
+        
+        # Plot Error
+        train_acc = metrics["train_error"].dropna().reset_index(drop=True)
+        val_acc = metrics["val_error"].dropna().reset_index(drop=True)
 
-    # fig = plt.figure(figsize=(7,6))
-    # plt.grid(True)
-    # plt.plot(train)
+        fig = plt.figure(figsize=(7,6))
+        plt.grid(True)
+        plt.plot(train_acc, color="r", marker="o", label="train/error")
+        plt.plot(val_acc, color="b", marker="x", label="val/error")
+        plt.xlabel("Epoch", fontsize=24)
+        plt.ylabel("Error", fontsize=24)
+        plt.legend(loc="lower right", fontsize=18)
+        plt.savefig(f"{trainer.logger.log_dir}/acc.png")
 
+        # Plot Loss
+        train_loss = metrics["train_loss"].dropna().reset_index(drop=True)
+        val_loss = metrics["val_loss"].dropna().reset_index(drop=True)
+
+        fig = plt.figure(figsize=(7,6))
+        plt.grid(True)
+        plt.plot(train_loss, color="r", marker="o", label="train/loss")
+        plt.plot(val_loss, color="b", marker="x", label="val/loss")
+        plt.xlabel("Epoch", fontsize=24)
+        plt.ylabel("Error", fontsize=24)
+        plt.legend(loc="upper right", fontsize=18)
+        plt.savefig(f"{trainer.logger.log_dir}/loss.png")
+
+        # Plot Learning Rate
+        lr = metrics['lr'].dropna().reset_index(drop=True)
+
+        fig = plt.figure(figsize=(7, 6))
+        plt.grid(True)
+        plt.plot(lr, color="g", marker="o", label='learning rate')
+        plt.ylabel('LR', fontsize=24)
+        plt.xlabel('Epoch', fontsize=24)
+        plt.legend(loc='upper right', fontsize=18)
+        plt.savefig(f'{trainer.logger.log_dir}/lr.png')
 
 if __name__ == "__main__":
     args = get_program_arguments()
