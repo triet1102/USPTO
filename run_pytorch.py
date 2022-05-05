@@ -27,12 +27,13 @@ def main():
     distr_config = PyTorchConfiguration(process_count=8, node_count=2)
 
     # Init configuration
-    config = ScriptRunConfig(source_directory='./src',
-                             script='train.py',
-                             compute_target='gpu-cluster',
+    config = ScriptRunConfig(source_directory="./src",
+                             script="train.py",
+                             compute_target="gpu-cluster",
                              distributed_job_config=distr_config,
                              arguments=[
-                                 '--data-folder', USPTO_file_dataset.as_mount(),
+                                 "--data-folder", USPTO_file_dataset.as_mount(),
+                                 "--model-name", "microsoft/mpnet-base"
                              ]
                              )
 
@@ -54,11 +55,11 @@ def main():
     # run.download_files(prefix="./outputs",
     #                     output_directory="./saved_models")
 
-    save_model = True
-    if save_model:
-        os.makedirs("./saved_models", exist_ok=True)
-        run.download_files(prefix="./outputs",
-                           output_directory="./saved_models")
+    # save_model = True
+    # if save_model:
+    #     os.makedirs("./saved_models", exist_ok=True)
+    #     run.download_files(prefix="./outputs",
+    #                        output_directory="./saved_models")
 
 
 if __name__ == "__main__":

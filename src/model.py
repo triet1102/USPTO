@@ -2,6 +2,7 @@ import torch
 from transformers import AutoModel, AutoTokenizer
 import torch.nn as nn
 import pytorch_lightning as pl
+from torch.optim.lr_scheduler import OneCycleLR
 
 
 class PhraseSimilarityModelImpl(nn.Module):
@@ -22,10 +23,12 @@ class PhraseSimilarityModelImpl(nn.Module):
 
 
 class PhraseSimilarityModel(pl.LightningModule):
-    def __init__(self, model, lr, criterion, metric):
+    def __init__(self, model, lr, max_lr, total_steps, criterion, metric):
         super(PhraseSimilarityModel, self).__init__()
         self.model = model
         self.lr = lr
+        self.max_lr = max_lr
+        self.total_steps = total_steps
         self.criterion = criterion
         self.metric = metric
 
@@ -34,7 +37,14 @@ class PhraseSimilarityModel(pl.LightningModule):
 
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-        return self.optimizer
+        self.sch = OneCycleLR(self.optimizer, max_lr=self.max_lr, total_steps=self.total_steps, anneal_strategy="linear")
+        
+        return {
+            "optimizer":self.optimizer,
+            "lr_scheduler": {
+                "scheduler" : self.sch,
+            }
+        }
 
     def training_step(self, batch, batch_idx):
         ids, mask = batch[0], batch[1]

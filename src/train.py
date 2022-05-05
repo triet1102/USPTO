@@ -81,9 +81,15 @@ def get_program_arguments():
         help='Learning rate'
     )
     parser.add_argument(
+        '--max-learning-rate',
+        type=float,
+        default=1e-3,
+        help='Max learning rate'
+    )
+    parser.add_argument(
         '--accumulate',
         type=int,
-        default=1,
+        default=2,
         help='Accumulate'
     )
     parser.add_argument(
@@ -130,6 +136,7 @@ def main(devices: int,
          batch_size: int,
          num_epoch: int,
          learning_rate: float,
+         max_learning_rate: float,
          accumulate: int,
          patience: int,
          monitor: str,
@@ -163,7 +170,6 @@ def main(devices: int,
     # Setup path
     train_path = os.path.join(data_folder, "train.csv")
     test_path = os.path.join(data_folder, "test.csv")
-    submission_path = os.path.join(data_folder, "sample_submission.csv")
 
     # Read data
     train_data = pd.read_csv(train_path)
@@ -193,8 +199,6 @@ def main(devices: int,
         train_dataset, batch_size=batch_size, shuffle=True)
     val_dataloader = DataLoader(
         val_dataset, batch_size=batch_size, shuffle=False)
-    test_dataloader = DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False)
 
     steps_per_epoch = len(train_dataloader)
     print(f"steps_per_epoch: {steps_per_epoch}")
@@ -221,7 +225,12 @@ def main(devices: int,
     model = PhraseSimilarityModelImpl(model_name)
     criterion = nn.HuberLoss(reduction='mean', delta=1.0)
     metric = MeanSquaredError()
-    driver = PhraseSimilarityModel(model, learning_rate, criterion, metric)
+    driver = PhraseSimilarityModel(model=model,
+                                   lr=learning_rate,
+                                   max_lr=max_learning_rate,
+                                   total_steps=steps_per_epoch*num_epoch,
+                                   criterion=criterion,
+                                   metric=metric)
 
     trainer = Trainer(
         accelerator="gpu",
@@ -237,15 +246,15 @@ def main(devices: int,
 
     trainer.fit(driver, train_dataloaders=train_dataloader,
                 val_dataloaders=val_dataloader)
-    
+
     if rank == 0:
         metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
-        
+
         # Plot Error
         train_acc = metrics["train_error"].dropna().reset_index(drop=True)
         val_acc = metrics["val_error"].dropna().reset_index(drop=True)
 
-        fig = plt.figure(figsize=(7,6))
+        fig = plt.figure(figsize=(7, 6))
         plt.grid(True)
         plt.plot(train_acc, color="r", marker="o", label="train/error")
         plt.plot(val_acc, color="b", marker="x", label="val/error")
@@ -258,12 +267,12 @@ def main(devices: int,
         train_loss = metrics["train_loss"].dropna().reset_index(drop=True)
         val_loss = metrics["val_loss"].dropna().reset_index(drop=True)
 
-        fig = plt.figure(figsize=(7,6))
+        fig = plt.figure(figsize=(7, 6))
         plt.grid(True)
         plt.plot(train_loss, color="r", marker="o", label="train/loss")
         plt.plot(val_loss, color="b", marker="x", label="val/loss")
         plt.xlabel("Epoch", fontsize=24)
-        plt.ylabel("Error", fontsize=24)
+        plt.ylabel("Loss", fontsize=24)
         plt.legend(loc="upper right", fontsize=18)
         plt.savefig(f"{trainer.logger.log_dir}/loss.png")
 
@@ -278,6 +287,7 @@ def main(devices: int,
         plt.legend(loc='upper right', fontsize=18)
         plt.savefig(f'{trainer.logger.log_dir}/lr.png')
 
+
 if __name__ == "__main__":
     args = get_program_arguments()
     main(devices=args.devices,
@@ -289,6 +299,7 @@ if __name__ == "__main__":
          batch_size=args.batch_size,
          num_epoch=args.num_epoch,
          learning_rate=args.learning_rate,
+         max_learning_rate=args.max_learning_rate,
          accumulate=args.accumulate,
          patience=args.patience,
          monitor=args.monitor,
