@@ -31,22 +31,23 @@ class PhraseSimilarityModel(pl.LightningModule):
         self.total_steps = total_steps
         self.criterion = criterion
         self.metric = metric
+        self.lrs = []
 
     def forward(self, text, mask):
         return self.model(text, mask)
 
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-        self.sch = OneCycleLR(self.optimizer, max_lr=self.max_lr, total_steps=self.total_steps, anneal_strategy="linear")
-        
-        return {
-            "optimizer":self.optimizer,
-            "lr_scheduler": {
-                "scheduler" : self.sch,
+        self.sch = OneCycleLR(self.optimizer, steps_per_epoch=38, epochs=3, anneal_strategy="cos")
+        lr_scheduler = {
+                'scheduler': self.sch,
+                "interval": "step"
             }
-        }
+        return [self.optimizer], [lr_scheduler]
 
     def training_step(self, batch, batch_idx):
+        self.lrs.append(self.sch.optimizer.param_groups[0]["lr"])
+        
         ids, mask = batch[0], batch[1]
         preds = self.model(ids, mask)
         loss = self.criterion(preds.squeeze(1), batch[2])

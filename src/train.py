@@ -193,7 +193,6 @@ def main(devices: int,
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     train_dataset = PhraseSimilarityDataset(train_data, tokenizer, max_length)
     val_dataset = PhraseSimilarityDataset(val_data, tokenizer, max_length)
-    test_dataset = PhraseSimilarityTestset(test_data, tokenizer, max_length)
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True)
@@ -202,6 +201,7 @@ def main(devices: int,
 
     steps_per_epoch = len(train_dataloader)
     print(f"steps_per_epoch: {steps_per_epoch}")
+    
 
     os.makedirs("./outputs", exist_ok=True)
     logger = CSVLogger(save_dir='./outputs',
