@@ -3,7 +3,6 @@
 .ipynb_aml_checkpoints/
 .amlignore
 us-patent-phrase-to-phrase-matching.zip
-*.csv
 bert-base-uncased_log/
 src/__pycache__/
 saved_models/
