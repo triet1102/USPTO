@@ -83,7 +83,7 @@ def get_program_arguments():
     parser.add_argument(
         '--accumulate',
         type=int,
-        default=2,
+        default=1,
         help='Accumulate'
     )
     parser.add_argument(
@@ -154,21 +154,30 @@ def main(devices: int,
     :param debug: Debug
     :param args: Arguments
     """
-
-    # # Get PyTorch environment variables
+    # Get PyTorch environment variables
     # world_size = int(os.environ["WORLD_SIZE"])
     rank = int(os.environ["RANK"])
     # local_rank = int(os.environ["LOCAL_RANK"])
 
     # Setup path
     train_path = os.path.join(data_folder, "train.csv")
+    context_path = os.path.join(data_folder, "CPC_context.csv")
     test_path = os.path.join(data_folder, "test.csv")
 
-    # Read data
-    train_data = pd.read_csv(train_path)
-    test_data = pd.read_csv(test_path)
+    # Read and merge data
+    context_data = pd.read_csv(context_path)
+    context_data = context_data.rename(columns={"code": "context"})
 
-    # !!! Remember to switch debug = False for training
+    train_data = pd.read_csv(train_path)
+    train_data = pd.merge(
+        train_data, context_data[["context", "title"]], on="context", how="left")
+    print(train_data.head())
+
+    test_data = pd.read_csv(test_path)
+    test_data = pd.merge(
+        test_data, context_data[["context", "title"]], on="context", how="left")
+
+    print(f"DEBUG: {debug}")
     if debug == True:
         train_data = train_data.iloc[:2000]
 
@@ -178,8 +187,7 @@ def main(devices: int,
                                                                       scores,
                                                                       stratify=scores,
                                                                       test_size=val_size,
-                                                                      random_state=seed
-                                                                      )
+                                                                      random_state=seed)
     train_data["score"] = train_labels
     val_data["score"] = val_labels
 
@@ -193,21 +201,23 @@ def main(devices: int,
         val_dataset, batch_size=batch_size, shuffle=False)
 
     steps_per_epoch = len(train_dataloader)
-    print(f"steps_per_epoch: {steps_per_epoch}")
     total_steps = steps_per_epoch * num_epoch
-    print(f"total_steps: {total_steps}")
-
+    # Use 10% of the total training steps for warmup learning rate
     num_warmups = int(total_steps * 0.1)
-    print(f"num_warmups: {num_warmups}")
-
     num_decreases = total_steps - num_warmups
+    total_devices = num_nodes * devices
+    print(f"steps_per_epoch: {steps_per_epoch}")
+    print(f"total_steps: {total_steps}")
+    print(f"num_warmups: {num_warmups}")
     print(f"num_decreases: {num_decreases}")
+    print(f"total_devices: {total_devices}")
 
     os.makedirs("./outputs", exist_ok=True)
     logger = CSVLogger(save_dir='./outputs',
                        name=model_name.split('/')[-1]+'_log')
     logger.log_hyperparams(args.__dict__)
 
+    # Settup callbacks
     checkpoint_callback = ModelCheckpoint(dirpath="./outputs",
                                           monitor=monitor,
                                           save_top_k=1,
@@ -222,6 +232,7 @@ def main(devices: int,
                                         verbose=False,
                                         mode="min")
 
+    # Set up driver for training
     model = PhraseSimilarityModelImpl(model_name)
     criterion = nn.HuberLoss(reduction='mean', delta=1.0)
     metric = MeanSquaredError()
@@ -229,9 +240,11 @@ def main(devices: int,
                                    lr=learning_rate,
                                    num_warmups=num_warmups,
                                    num_decreases=num_decreases,
+                                   total_devices=total_devices,
                                    criterion=criterion,
                                    metric=metric)
 
+    # Set up trainer
     trainer = Trainer(
         accelerator="gpu",
         devices=devices,
@@ -244,9 +257,11 @@ def main(devices: int,
         weights_summary='top',
     )
 
+    # Train our driver
     trainer.fit(driver, train_dataloaders=train_dataloader,
                 val_dataloaders=val_dataloader)
 
+    # Plot metrics and learning rate
     if rank == 0:
         metrics = pd.read_csv(f"{trainer.logger.log_dir}/metrics.csv")
 
@@ -277,18 +292,6 @@ def main(devices: int,
         plt.savefig(f"{trainer.logger.log_dir}/loss.png")
 
         # Plot Learning Rate
-        lr = metrics['lr'].dropna().reset_index(drop=True)
-
-        fig = plt.figure(figsize=(7, 6))
-        plt.grid(True)
-        plt.plot(lr, color="g", marker="o", label='learning rate')
-        plt.ylabel('LR', fontsize=24)
-        plt.xlabel('Epoch', fontsize=24)
-        plt.legend(loc='upper right', fontsize=18)
-        plt.savefig(f'{trainer.logger.log_dir}/lr.png')
-
-        # Plot schedulered LR
-        # plt.plot(driver.lrs)
         fig = plt.figure(figsize=(7, 6))
         plt.grid(True)
         plt.plot(driver.lrs, color="g", marker="o", label='learning rate')
@@ -302,6 +305,7 @@ def main(devices: int,
 
 if __name__ == "__main__":
     args = get_program_arguments()
+    print(f"DEBUG mode: {args.debug}")
     main(devices=args.devices,
          num_nodes=args.num_nodes,
          data_folder=args.data_folder,

@@ -32,11 +32,12 @@ def main():
                              compute_target="gpu-cluster",
                              distributed_job_config=distr_config,
                              arguments=[
-                                 "--val-size", 0.05,
+                                 "--num-epoch", 6,
+                                 "--batch-size", 32,
+                                 "--val-size", 0.2,
                                  "--data-folder", USPTO_file_dataset.as_mount(),
                                  "--model-name", "microsoft/mpnet-base"
-                             ]
-                             )
+                             ])
 
     env = Environment.from_conda_specification(
         name='venv',

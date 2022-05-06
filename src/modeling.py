@@ -4,6 +4,7 @@ import torch.nn as nn
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import OneCycleLR
 from optim_lr_scheduler import WarmupLRScheduler
+import math
 
 
 class PhraseSimilarityModelImpl(nn.Module):
@@ -24,12 +25,13 @@ class PhraseSimilarityModelImpl(nn.Module):
 
 
 class PhraseSimilarityModel(pl.LightningModule):
-    def __init__(self, model, lr, num_warmups, num_decreases, criterion, metric):
+    def __init__(self, model, lr, num_warmups, num_decreases, total_devices, criterion, metric):
         super(PhraseSimilarityModel, self).__init__()
         self.model = model
         self.lr = lr
         self.num_warmups = num_warmups
         self.num_decreases = num_decreases
+        self.total_devices = total_devices
         self.criterion = criterion
         self.metric = metric
         self.lrs = []
@@ -39,8 +41,7 @@ class PhraseSimilarityModel(pl.LightningModule):
 
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-        self.sch = WarmupLRScheduler(self.optimizer, int(self.num_warmups/8), int(self.num_decreases/8))
-        print(f"Scheduler learning rate{self.sch.lr}")
+        self.sch = WarmupLRScheduler(self.optimizer, math.ceil(self.num_warmups/self.total_devices), math.floor(self.num_decreases/self.total_devices))
         lr_scheduler = {
                 "scheduler": self.sch,
                 "interval": "step",
