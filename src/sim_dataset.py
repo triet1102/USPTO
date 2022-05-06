@@ -17,9 +17,11 @@ class PhraseSimilarityDataset(Dataset):
     
     def __getitem__(self, index):
         anchor = self.df.anchor.iloc[index].lower()
-        target = self.df.target.iloc[index].lower()        
+        target = self.df.target.iloc[index].lower()
+        title = self.df.context.iloc[index].lower()
         
-        tokens = self.tokenizer(anchor + '[SEP]' + target, **self.tokenizer_params)
+        text_to_tokenize = f"{anchor} {self.tokenizer.sep_token} {target} {self.tokenizer.sep_token} {title}." 
+        tokens = self.tokenizer(text_to_tokenize, **self.tokenizer_params)
         score = torch.tensor(self.df.score.iloc[index], dtype=torch.float32)
         
         return (
@@ -44,8 +46,10 @@ class PhraseSimilarityTestset(Dataset):
     def __getitem__(self, index):
         anchor = self.df.anchor.iloc[index].lower()
         target = self.df.target.iloc[index].lower()        
+        title = self.df.context.iloc[index].lower()
         
-        tokens = self.tokenizer(anchor + '[SEP]' + target, **self.tokenizer_params)
+        text_to_tokenize = f"{anchor} {self.tokenizer.sep_token} {target} {self.tokenizer.sep_token} {title}." 
+        tokens = self.tokenizer(text_to_tokenize, **self.tokenizer_params)
         
         return (
             np.array(tokens["input_ids"]),
