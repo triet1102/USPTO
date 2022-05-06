@@ -18,8 +18,8 @@ import sys
 import os
 from sim_dataset import PhraseSimilarityDataset
 from sim_dataset import PhraseSimilarityTestset
-from model import PhraseSimilarityModelImpl
-from model import PhraseSimilarityModel
+from modeling import PhraseSimilarityModelImpl
+from modeling import PhraseSimilarityModel
 import matplotlib.pyplot as plt
 
 
@@ -81,12 +81,6 @@ def get_program_arguments():
         help='Learning rate'
     )
     parser.add_argument(
-        '--max-learning-rate',
-        type=float,
-        default=1e-3,
-        help='Max learning rate'
-    )
-    parser.add_argument(
         '--accumulate',
         type=int,
         default=2,
@@ -136,7 +130,6 @@ def main(devices: int,
          batch_size: int,
          num_epoch: int,
          learning_rate: float,
-         max_learning_rate: float,
          accumulate: int,
          patience: int,
          monitor: str,
@@ -177,7 +170,7 @@ def main(devices: int,
 
     # !!! Remember to switch debug = False for training
     if debug == True:
-        train_data = train_data.iloc[:1000]
+        train_data = train_data.iloc[:2000]
 
     scores = train_data.score.values
     train_data.drop("score", inplace=True, axis=1)
@@ -294,6 +287,18 @@ def main(devices: int,
         plt.legend(loc='upper right', fontsize=18)
         plt.savefig(f'{trainer.logger.log_dir}/lr.png')
 
+        # Plot schedulered LR
+        # plt.plot(driver.lrs)
+        fig = plt.figure(figsize=(7, 6))
+        plt.grid(True)
+        plt.plot(driver.lrs, color="g", marker="o", label='learning rate')
+        plt.ylabel('LR', fontsize=24)
+        plt.xlabel('Epoch', fontsize=24)
+        plt.legend(loc='upper right', fontsize=18)
+        plt.savefig(f'{trainer.logger.log_dir}/sch_lr.png')
+
+        plt.show()
+
 
 if __name__ == "__main__":
     args = get_program_arguments()
@@ -306,7 +311,6 @@ if __name__ == "__main__":
          batch_size=args.batch_size,
          num_epoch=args.num_epoch,
          learning_rate=args.learning_rate,
-         max_learning_rate=args.max_learning_rate,
          accumulate=args.accumulate,
          patience=args.patience,
          monitor=args.monitor,

@@ -32,6 +32,7 @@ def main():
                              compute_target="gpu-cluster",
                              distributed_job_config=distr_config,
                              arguments=[
+                                 "--val-size", 0.05,
                                  "--data-folder", USPTO_file_dataset.as_mount(),
                                  "--model-name", "microsoft/mpnet-base"
                              ]

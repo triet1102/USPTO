@@ -3,7 +3,7 @@ from transformers import AutoModel, AutoTokenizer
 import torch.nn as nn
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import OneCycleLR
-from src.lr_scheduler import WarmupLRScheduler
+from optim_lr_scheduler import WarmupLRScheduler
 
 
 class PhraseSimilarityModelImpl(nn.Module):
@@ -33,21 +33,13 @@ class PhraseSimilarityModel(pl.LightningModule):
         self.criterion = criterion
         self.metric = metric
         self.lrs = []
-        self.phrases = "OKKKKK"
-        print("OK init")
 
     def forward(self, text, mask):
         return self.model(text, mask)
 
     def configure_optimizers(self):
-        print("OK inside configure")
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-        # self.sch = OneCycleLR(self.optimizer, steps_per_epoch=38, epochs=3, anneal_strategy="cos")
-        # lr_scheduler = {
-        #         'scheduler': self.sch,
-        #         "interval": "step"
-        #     }
-        self.sch = WarmupLRScheduler(self.optimizer, self.num_warmups, self.num_decreases)
+        self.sch = WarmupLRScheduler(self.optimizer, int(self.num_warmups/8), int(self.num_decreases/8))
         print(f"Scheduler learning rate{self.sch.lr}")
         lr_scheduler = {
                 "scheduler": self.sch,
