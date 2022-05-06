@@ -3,6 +3,7 @@ from transformers import AutoModel, AutoTokenizer
 import torch.nn as nn
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import OneCycleLR
+from src.lr_scheduler import WarmupLRScheduler
 
 
 class PhraseSimilarityModelImpl(nn.Module):
@@ -23,25 +24,35 @@ class PhraseSimilarityModelImpl(nn.Module):
 
 
 class PhraseSimilarityModel(pl.LightningModule):
-    def __init__(self, model, lr, max_lr, total_steps, criterion, metric):
+    def __init__(self, model, lr, num_warmups, num_decreases, criterion, metric):
         super(PhraseSimilarityModel, self).__init__()
         self.model = model
         self.lr = lr
-        self.max_lr = max_lr
-        self.total_steps = total_steps
+        self.num_warmups = num_warmups
+        self.num_decreases = num_decreases
         self.criterion = criterion
         self.metric = metric
         self.lrs = []
+        self.phrases = "OKKKKK"
+        print("OK init")
 
     def forward(self, text, mask):
         return self.model(text, mask)
 
     def configure_optimizers(self):
+        print("OK inside configure")
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-        self.sch = OneCycleLR(self.optimizer, steps_per_epoch=38, epochs=3, anneal_strategy="cos")
+        # self.sch = OneCycleLR(self.optimizer, steps_per_epoch=38, epochs=3, anneal_strategy="cos")
+        # lr_scheduler = {
+        #         'scheduler': self.sch,
+        #         "interval": "step"
+        #     }
+        self.sch = WarmupLRScheduler(self.optimizer, self.num_warmups, self.num_decreases)
+        print(f"Scheduler learning rate{self.sch.lr}")
         lr_scheduler = {
-                'scheduler': self.sch,
-                "interval": "step"
+                "scheduler": self.sch,
+                "interval": "step",
+                "frequency": 1
             }
         return [self.optimizer], [lr_scheduler]
 

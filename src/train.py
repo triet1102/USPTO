@@ -201,7 +201,14 @@ def main(devices: int,
 
     steps_per_epoch = len(train_dataloader)
     print(f"steps_per_epoch: {steps_per_epoch}")
-    
+    total_steps = steps_per_epoch * num_epoch
+    print(f"total_steps: {total_steps}")
+
+    num_warmups = int(total_steps * 0.1)
+    print(f"num_warmups: {num_warmups}")
+
+    num_decreases = total_steps - num_warmups
+    print(f"num_decreases: {num_decreases}")
 
     os.makedirs("./outputs", exist_ok=True)
     logger = CSVLogger(save_dir='./outputs',
@@ -227,8 +234,8 @@ def main(devices: int,
     metric = MeanSquaredError()
     driver = PhraseSimilarityModel(model=model,
                                    lr=learning_rate,
-                                   max_lr=max_learning_rate,
-                                   total_steps=steps_per_epoch*num_epoch,
+                                   num_warmups=num_warmups,
+                                   num_decreases=num_decreases,
                                    criterion=criterion,
                                    metric=metric)
 

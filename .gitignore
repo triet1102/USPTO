@@ -11,3 +11,5 @@ lightning_logs/
 
 test.py
 to_do.txt
+test.ipynb
+bert-base-uncased_log_test/
